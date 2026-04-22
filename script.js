@@ -880,240 +880,176 @@
         });
       }
 
-      // ================== 角色星图 ==================
-      function openGraph(workId) {
-        const modal = document.getElementById('graph-modal');
-        const canvas = document.getElementById('graph-canvas');
-        const ctx = canvas.getContext('2d');
-        
-        // 设置画布大小
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
-        
-        // 清空画布
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const { chars } = getData();
-        const workChars = chars.filter(c => c.workId === workId);
-        
-        if (workChars.length < 2) {
-          showToast('该作品至少需要2个角色才能生成星图');
-          return;
-        }
-        
-        // 简单的力导向图实现
-        const nodes = workChars.map((c, i) => ({
-          id: c.id,
-          name: c.name,
-          x: canvas.width / 2 + Math.random() * 200 - 100,
-          y: canvas.height / 2 + Math.random() * 200 - 100,
-          vx: 0,
-          vy: 0
-        }));
-        
-        const edges = [];
-        const edgeMap = new Set(); // 用于去重的集合
-        workChars.forEach(c => {
-        (c.relations || []).forEach(r => {
-            if (workChars.some(wc => wc.id === r.targetId)) {
-            // 生成唯一边标识（按ID排序，避免A-B和B-A重复）
-            const edgeKey = [c.id, r.targetId].sort().join('-');
-            if (!edgeMap.has(edgeKey)) {
-                edgeMap.add(edgeKey);
-                edges.push({
-                source: c.id,
-                target: r.targetId,
-                type: r.type || r.custom
-                });
-            }
-            }
-        });
-        });
-        
-        // 绘制函数
-        function draw() {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          
-          // 绘制边
-          edges.forEach(e => {
-            const source = nodes.find(n => n.id === e.source);
-            const target = nodes.find(n => n.id === e.target);
-            if (!source || !target) return;
-            
-            ctx.beginPath();
-            ctx.moveTo(source.x, source.y);
-            ctx.lineTo(target.x, target.y);
-            ctx.strokeStyle = '#ccc';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-            
-            // 绘制关系标签
-            const midX = (source.x + target.x) / 2;
-            const midY = (source.y + target.y) / 2;
-            ctx.fillStyle = '#666';
-            ctx.font = '12px Noto Sans SC';
-            ctx.textAlign = 'center';
-            ctx.fillText(e.type, midX, midY - 5);
+// ================== 角色星图 ==================
+function openGraph(workId) {
+  const modal = document.getElementById('graph-modal');
+  const canvas = document.getElementById('graph-canvas');
+  const ctx = canvas.getContext('2d');
+
+  // 设置画布大小
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+
+  // 清空画布
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const { chars } = getData();
+  const workChars = chars.filter(c => c.workId === workId);
+
+  if (workChars.length < 2) {
+    showToast('该作品至少需要2个角色才能生成星图');
+    return;
+  }
+
+  // 简单的力导向图实现
+  const nodes = workChars.map((c, i) => ({
+    id: c.id,
+    name: c.name,
+    x: canvas.width / 2 + Math.random() * 200 - 100,
+    y: canvas.height / 2 + Math.random() * 200 - 100,
+    vx: 0,
+    vy: 0
+  }));
+
+  const edges = [];
+  const edgeMap = new Set();
+  workChars.forEach(c => {
+    (c.relations || []).forEach(r => {
+      if (workChars.some(wc => wc.id === r.targetId)) {
+        const edgeKey = [c.id, r.targetId].sort().join('-');
+        if (!edgeMap.has(edgeKey)) {
+          edgeMap.add(edgeKey);
+          edges.push({
+            source: c.id,
+            target: r.targetId,
+            type: r.type || r.custom
           });
-          
-            // 绘制节点
-            nodes.forEach(n => {
-            ctx.beginPath();
-            ctx.arc(n.x, n.y, 30, 0, Math.PI * 2);
-            ctx.fillStyle = '#5273f7';
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2; // 新增：节点描边
-            ctx.stroke();      // 新增：执行描边
-            
-            // 新增：绘制角色名（居中显示）
-            ctx.fillStyle = '#fff';
-            ctx.font = '14px Noto Sans SC';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(n.name, n.x, n.y);
-            });
         }
-        
-        // 物理模拟参数（控制节点运动规则）
-        const gravity = 0.1;
-        const repulsion = 1000; // 节点之间的排斥力（避免重叠）
-        const attraction = 0.1; // 关系边的吸引力（保持关联）
-
-        // 力导向模拟：让节点分散+边保持连接
-        function simulate() {
-        // 1. 节点之间的排斥力
-        for (let i = 0; i < nodes.length; i++) {
-            for (let j = i + 1; j < nodes.length; j++) {
-            const nodeA = nodes[i];
-            const nodeB = nodes[j];
-            const dx = nodeB.x - nodeA.x;
-            const dy = nodeB.y - nodeA.y;
-            const distance = Math.sqrt(dx * dx + dy * dy) || 1; // 避免除以0
-            const force = repulsion / (distance * distance); // 距离越近，排斥力越大
-            
-            // 计算力的方向并应用
-            const fx = (dx / distance) * force;
-            const fy = (dy / distance) * force;
-            nodeA.vx -= fx;
-            nodeA.vy -= fy;
-            nodeB.vx += fx;
-            nodeB.vy += fy;
-            }
-        }
-        
-        // 2. 关系边的吸引力
-        edges.forEach(edge => {
-            const source = nodes.find(n => n.id === edge.source);
-            const target = nodes.find(n => n.id === edge.target);
-            if (!source || !target) return;
-            
-            const dx = target.x - source.x;
-            const dy = target.y - source.y;
-            const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-            const force = (distance - 100) * attraction; // 目标让节点间距保持100px
-            
-            // 计算力的方向并应用
-            const fx = (dx / distance) * force;
-            const fy = (dy / distance) * force;
-            source.vx += fx;
-            source.vy += fy;
-            target.vx -= fx;
-            target.vy -= fy;
-        });
-        
-        // 3. 更新节点位置（添加阻尼，避免无限运动）
-        nodes.forEach(node => {
-            node.vx *= 0.9; // 阻尼系数
-            node.vy *= 0.9;
-            node.x += node.vx;
-            node.y += node.vy;
-            
-            // 限制节点在画布内（避免跑出视野）
-            node.x = Math.max(30, Math.min(canvas.width - 30, node.x));
-            node.y = Math.max(30, Math.min(canvas.height - 30, node.y));
-        });
-        }
-
-        // 动画循环：持续更新节点位置+重绘
-        function animate() {
-        simulate(); // 物理模拟
-        draw();     // 重绘画布
-        requestAnimationFrame(animate); // 循环执行
-        }
-
-        // 显示星图弹窗并启动动画
-        modal.classList.add('show');
-        animate();
-
-
-        // 简单的物理模拟
-        function simulate() {
-          const centerX = canvas.width / 2;
-          const centerY = canvas.height / 2;
-          
-          // 中心引力
-          nodes.forEach(n => {
-            n.vx += (centerX - n.x) * 0.01;
-            n.vy += (centerY - n.y) * 0.01;
-          });
-          
-          // 节点间斥力
-          for (let i = 0; i < nodes.length; i++) {
-            for (let j = i + 1; j < nodes.length; j++) {
-              const dx = nodes[j].x - nodes[i].x;
-              const dy = nodes[j].y - nodes[i].y;
-              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-              const force = 1000 / (dist * dist);
-              
-              nodes[i].vx -= force * dx / dist;
-              nodes[i].vy -= force * dy / dist;
-              nodes[j].vx += force * dx / dist;
-              nodes[j].vy += force * dy / dist;
-            }
-          }
-          
-          // 边的引力
-          edges.forEach(e => {
-            const source = nodes.find(n => n.id === e.source);
-            const target = nodes.find(n => n.id === e.target);
-            if (!source || !target) return;
-            
-            const dx = target.x - source.x;
-            const dy = target.y - source.y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const force = (dist - 150) * 0.02;
-            
-            source.vx += force * dx / dist;
-            source.vy += force * dy / dist;
-            target.vx -= force * dx / dist;
-            target.vy -= force * dy / dist;
-          });
-          
-          // 阻尼
-          nodes.forEach(n => {
-            n.vx *= 0.9;
-            n.vy *= 0.9;
-            n.x += n.vx;
-            n.y += n.vy;
-            
-            // 边界限制
-            n.x = Math.max(50, Math.min(canvas.width - 50, n.x));
-            n.y = Math.max(50, Math.min(canvas.height - 50, n.y));
-          });
-          
-          draw();
-        }
-        
-        // 运行模拟
-        const interval = setInterval(simulate, 16);
-        
-        // 关闭弹窗时停止模拟
-        document.getElementById('graph-close').addEventListener('click', () => {
-          clearInterval(interval);
-          modal.classList.remove('show');
-        });
       }
+    });
+  });
+
+  // 绘制函数
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 绘制边
+    edges.forEach(e => {
+      const source = nodes.find(n => n.id === e.source);
+      const target = nodes.find(n => n.id === e.target);
+      if (!source || !target) return;
+
+      ctx.beginPath();
+      ctx.moveTo(source.x, source.y);
+      ctx.lineTo(target.x, target.y);
+      ctx.strokeStyle = '#ccc';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      const midX = (source.x + target.x) / 2;
+      const midY = (source.y + target.y) / 2;
+      ctx.fillStyle = '#666';
+      ctx.font = '12px Noto Sans SC';
+      ctx.textAlign = 'center';
+      ctx.fillText(e.type, midX, midY - 5);
+    });
+
+    // 绘制节点
+    nodes.forEach(n => {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 30, 0, Math.PI * 2);
+      ctx.fillStyle = '#5273f7';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#fff';
+      ctx.font = '14px Noto Sans SC';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(n.name, n.x, n.y);
+    });
+  }
+
+  // ================== 關鍵修改：物理引擎 ==================
+  const repulsion = 8000;     // 更強的排斥力 → 不會貼在一起
+  const minDist = 180;       // 節點最小距離 → 強制拉開
+  const attraction = 0.05;  // 溫和吸引力
+  const damping = 0.85;      // 阻尼
+
+  function simulate() {
+    // 節點互斥（避免重疊、緊貼）
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i];
+        const b = nodes[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy) || 1;
+
+        // 距離小於 minDist 時斥力暴增
+        const force = repulsion / (dist * dist) * Math.min(1, minDist / dist);
+
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+
+        a.vx -= fx;
+        a.vy -= fy;
+        b.vx += fx;
+        b.vy += fy;
+      }
+    }
+
+    // 關聯邊的輕度引力
+    edges.forEach(e => {
+      const a = nodes.find(n => n.id === e.source);
+      const b = nodes.find(n => n.id === e.target);
+      if (!a || !b) return;
+
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const force = (dist - minDist) * attraction;
+
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+
+      a.vx += fx;
+      a.vy += fy;
+      b.vx -= fx;
+      b.vy -= fy;
+    });
+
+    // 更新位置 + 阻尼
+    nodes.forEach(n => {
+      n.vx *= damping;
+      n.vy *= damping;
+      n.x += n.vx;
+      n.y += n.vy;
+
+      // 邊界限制
+      n.x = Math.max(40, Math.min(canvas.width - 40, n.x));
+      n.y = Math.max(40, Math.min(canvas.height - 40, n.y));
+    });
+  }
+
+  // 動畫循環
+  function animate() {
+    simulate();
+    draw();
+    requestAnimationFrame(animate);
+  }
+
+  modal.classList.add('show');
+  animate();
+
+  // 關閉
+  document.getElementById('graph-close').onclick = () => {
+    modal.classList.remove('show');
+  };
+}
+
 
       // ================== 数据导入导出 ==================
       // 导出数据
