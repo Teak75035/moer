@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OC 卡片管理器</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <!-- 选项卡 -->
+    <div class="tab-nav">
+      <div class="tab-item active" data-target="page-char">人物列表</div>
+      <div class="tab-item" data-target="page-work">作品列表</div>
+      <div class="tab-item" data-target="page-birth">生日倒数</div>
+      <div class="tab-item" data-target="page-setting">设置</div>
+    </div>
+    <!-- 人物页面 -->
+    <div class="page active" id="page-char">
+      <div class="page-header">
+        <h2>人物列表</h2>
+        <button class="btn" id="add-char">
+          <span class="material-icons">add</span>新增人物
+        </button>
+      </div>
+      <div class="card-grid" id="char-list"></div>
+    </div>
+    <!-- 作品页面 -->
+    <div class="page" id="page-work">
+      <div class="page-header">
+        <h2>作品列表</h2>
+        <button class="btn" id="add-work">
+          <span class="material-icons">add</span>新增作品
+        </button>
+      </div>
+      <div class="card-grid" id="work-list"></div>
+    </div>
+    <!-- 生日页面 -->
+    <div class="page" id="page-birth">
+      <div class="page-header">
+        <h2>生日倒数日</h2>
+      </div>
+      <div class="card-grid" id="birthday-list"></div>
+    </div>
+    <!-- 设置页面 -->
+    <div class="page" id="page-setting">
+      <div class="settings-card">
+        <h3 style="margin-bottom:16px;">数据备份与恢复</h3>
+        <button class="btn" id="export-data">
+          <span class="material-icons">download</span>导出数据
+        </button>
+        <div style="height:12px;"></div>
+        <button class="btn btn-secondary" id="import-btn">
+          <span class="material-icons">upload_file</span>导入数据
+        </button>
+        <input type="file" id="import-file" hidden accept=".json">
+      </div>
+      <div class="about">椎名绫宫 - 2026</div>
+    </div>
+  </div>
+
+  <!-- 人物编辑弹窗 -->
+  <div class="modal" id="char-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title" id="char-modal-title">编辑人物</h3>
+        <button class="modal-close" id="char-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="char-form">
+          <!-- 基本信息分组 -->
+          <div class="form-section">
+            <div class="form-section-title">基本信息</div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label required">角色名称</label>
+                <input type="text" class="form-input" id="char-name" placeholder="请输入名字">
+              </div>
+              <div class="form-group">
+                <label class="form-label">昵称 / 别称</label>
+                <input type="text" class="form-input" id="char-nick" placeholder="请输入昵称">
+              </div>
+              <div class="form-group">
+                <label class="form-label required">所属作品</label>
+                <select class="form-select" id="char-work"></select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 形象设计分组 -->
+          <div class="form-section">
+            <div class="form-section-title">形象设计</div>
+            <div class="form-group">
+              <label class="form-label">角色图片</label>
+              <input type="file" class="form-input" id="char-images" multiple accept="image/*">
+              <!-- 图片轮播预览 -->
+              <div class="image-carousel" id="char-img-carousel">
+                <div class="carousel-container" id="char-img-container">
+                  <div class="carousel-item">
+                    <div class="card-img-empty" style="height:100%;"><span class="material-icons">image</span></div>
+                  </div>
+                </div>
+                <button type="button" class="carousel-nav carousel-prev" id="char-img-prev">
+                  <span class="material-icons">chevron_left</span>
+                </button>
+                <button type="button" class="carousel-nav carousel-next" id="char-img-next">
+                  <span class="material-icons">chevron_right</span>
+                </button>
+                <div class="carousel-indicators" id="char-img-indicators"></div>
+              </div>
+              <!-- 图片操作工具栏 -->
+              <div class="image-toolbar">
+                <span class="form-label">当前图片：<span id="char-img-count">0</span>张</span>
+                <div class="image-actions">
+                  <button type="button" class="image-action-btn" id="char-img-up" title="上移">
+                    <span class="material-icons">arrow_upward</span>
+                  </button>
+                  <button type="button" class="image-action-btn" id="char-img-down" title="下移">
+                    <span class="material-icons">arrow_downward</span>
+                  </button>
+                  <button type="button" class="image-action-btn danger" id="char-img-delete" title="删除">
+                    <span class="material-icons">delete</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">服装设计描述</label>
+              <textarea class="form-textarea" id="char-design" placeholder="描述服装设计特点"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">服装设计图</label>
+              <input type="file" class="form-input" id="char-design-imgs" multiple accept="image/*">
+              <!-- 设计图轮播预览 -->
+              <div class="image-carousel" id="char-design-carousel">
+                <div class="carousel-container" id="char-design-container">
+                  <div class="carousel-item">
+                    <div class="card-img-empty" style="height:100%;"><span class="material-icons">image</span></div>
+                  </div>
+                </div>
+                <button type="button" class="carousel-nav carousel-prev" id="char-design-prev">
+                  <span class="material-icons">chevron_left</span>
+                </button>
+                <button type="button" class="carousel-nav carousel-next" id="char-design-next">
+                  <span class="material-icons">chevron_right</span>
+                </button>
+                <div class="carousel-indicators" id="char-design-indicators"></div>
+              </div>
+              <!-- 设计图操作工具栏 -->
+              <div class="image-toolbar">
+                <span class="form-label">当前图片：<span id="char-design-count">0</span>张</span>
+                <div class="image-actions">
+                  <button type="button" class="image-action-btn" id="char-design-up" title="上移">
+                    <span class="material-icons">arrow_upward</span>
+                  </button>
+                  <button type="button" class="image-action-btn" id="char-design-down" title="下移">
+                    <span class="material-icons">arrow_downward</span>
+                  </button>
+                  <button type="button" class="image-action-btn danger" id="char-design-delete" title="删除">
+                    <span class="material-icons">delete</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 性格与属性分组 -->
+          <div class="form-section">
+            <div class="form-section-title">性格与属性</div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">性格画像</label>
+                <textarea class="form-textarea" id="char-personality" placeholder="描述角色性格"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">MBTI</label>
+                <input type="text" class="form-input" id="char-mbti" placeholder="如 INFP、ENFJ">
+              </div>
+              <div class="form-group">
+                <label class="form-label">基本信息（身高、体重等）</label>
+                <textarea class="form-textarea" id="char-base" placeholder="身高、体重、血型等"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label required">生日</label>
+                <!-- 自定义日期选择器 -->
+                <div class="date-picker">
+                  <input type="text" class="form-input" id="char-birth-display" placeholder="选择生日" readonly>
+                  <div class="date-picker-panel" id="date-picker-panel">
+                    <div class="date-picker-header">
+                      <button type="button" class="date-picker-btn" id="date-prev-month">&lt;</button>
+                      <h3 class="date-picker-month" id="date-current-month"></h3>
+                      <button type="button" class="date-picker-btn" id="date-next-month">&gt;</button>
+                    </div>
+                    <div class="date-picker-week">
+                      <div>日</div>
+                      <div>一</div>
+                      <div>二</div>
+                      <div>三</div>
+                      <div>四</div>
+                      <div>五</div>
+                      <div>六</div>
+                    </div>
+                    <div class="date-picker-days" id="date-days"></div>
+                  </div>
+                </div>
+                <input type="hidden" id="char-birth" value="">
+              </div>
+            </div>
+          </div>
+
+          <!-- 人物关系分组 -->
+          <div class="form-section">
+            <div class="form-section-title">人物关系</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <label class="form-label">人物关系</label>
+              <button type="button" class="btn btn-sm btn-secondary" id="add-relation">
+                <span class="material-icons">add</span>添加关系
+              </button>
+            </div>
+            <div id="relation-list"></div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="char-cancel">取消</button>
+        <button class="btn" id="char-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 作品编辑弹窗 -->
+  <div class="modal" id="work-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title" id="work-modal-title">编辑作品</h3>
+        <button class="modal-close" id="work-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="work-form">
+          <div class="form-section">
+            <div class="form-section-title">作品信息</div>
+            <div class="form-group">
+              <label class="form-label required">作品名称</label>
+              <input type="text" class="form-input" id="work-name" placeholder="请输入作品名">
+            </div>
+            <div class="form-group">
+              <label class="form-label required">作品简介</label>
+              <textarea class="form-textarea" id="work-desc" placeholder="简介内容"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">世界观设定</label>
+              <textarea class="form-textarea" id="work-world" placeholder="世界观设定"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="work-cancel">取消</button>
+        <button class="btn" id="work-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 星图弹窗 -->
+  <div class="modal" id="graph-modal">
+    <div class="modal-box" style="max-width:920px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="graph-title">角色星图</h3>
+        <button class="modal-close" id="graph-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- 核心画布 -->
+        <canvas id="graph-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认删除弹窗 -->
+  <div class="confirm-modal" id="confirm-modal">
+    <div class="confirm-box">
+      <div class="confirm-title" id="confirm-title">确定要删除吗？</div>
+      <div class="confirm-btns">
+        <button class="btn btn-secondary" id="confirm-cancel">取消</button>
+        <button class="btn btn-danger" id="confirm-ok">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图片放大预览层 -->
+  <div class="image-preview-overlay" id="image-preview-overlay">
+    <button class="preview-close" id="preview-close">&times;</button>
+    <img src="" alt="预览图片" class="preview-img" id="preview-img">
+  </div>
+
+  <!-- 提示 -->
+  <div class="toast" id="toast"></div>
+
+
+</body>
+</html>
+
