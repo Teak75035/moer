@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalStorage 管理器</title>
+  <!-- 引入本地 CSS 文件 -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 页面头部 -->
+    <div class="page-header">
+      <h2>LocalStorage 管理器</h2>
+      <button class="btn btn-danger" id="clearAllBtn">
+        <span>清空所有</span>
+      </button>
+    </div>
+
+    <!-- 添加/编辑 LocalStorage 表单 -->
+    <div class="form-section">
+      <div class="form-section-title">添加/编辑存储项</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label required" for="storageKey">键 (Key)</label>
+          <input type="text" id="storageKey" class="form-input" placeholder="请输入存储键名">
+        </div>
+        <div class="form-group">
+          <label class="form-label required" for="storageValue">值 (Value)</label>
+          <textarea id="storageValue" class="form-textarea" placeholder="请输入存储值（支持JSON格式）"></textarea>
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px;">
+        <button class="btn" id="saveBtn">保存</button>
+        <button class="btn btn-secondary" id="cancelBtn">取消</button>
+      </div>
+    </div>
+
+    <!-- 分割线 -->
+    <div class="divider"></div>
+
+    <!-- LocalStorage 列表 -->
+    <div class="form-section-title">当前存储项列表</div>
+    <div id="storageList" class="card-grid">
+      <!-- 存储项卡片将通过JS动态生成 -->
+      <div class="empty-tip" style="grid-column: 1/-1; text-align: center; padding: 40px; color: #8e8e93;">
+        暂无 LocalStorage 数据
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认删除弹窗 -->
+  <div class="confirm-modal" id="confirmModal">
+    <div class="confirm-box">
+      <div class="confirm-title">确认删除？</div>
+      <p style="text-align: center; color: #6e6e73;">此操作将永久删除该存储项，不可恢复。</p>
+      <div class="confirm-btns">
+        <button class="btn btn-secondary" id="cancelDeleteBtn">取消</button>
+        <button class="btn btn-danger" id="confirmDeleteBtn">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提示框 -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // 全局变量：当前编辑的key
+    let currentEditKey = null;
+    // DOM 元素
+    const storageKeyInput = document.getElementById('storageKey');
+    const storageValueInput = document.getElementById('storageValue');
+    const saveBtn = document.getElementById('saveBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const storageList = document.getElementById('storageList');
+    const confirmModal = document.getElementById('confirmModal');
+    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    const toast = document.getElementById('toast');
+
+    // 初始化：加载 LocalStorage 列表
+    document.addEventListener('DOMContentLoaded', renderStorageList);
+
+    // 保存/编辑 存储项
+    saveBtn.addEventListener('click', () => {
+      const key = storageKeyInput.value.trim();
+      const value = storageValueInput.value.trim();
+
+      if (!key) {
+        showToast('请输入有效的键名');
+        return;
+      }
+
+      try {
+        // 尝试解析JSON（如果是JSON格式）
+        JSON.parse(value);
+      } catch (e) {
+        // 不是JSON也不影响，直接存储字符串
+      }
+
+      localStorage.setItem(key, value);
+      showToast(currentEditKey ? '编辑成功' : '添加成功');
+      resetForm();
+      renderStorageList();
+    });
+
+    // 取消编辑
+    cancelBtn.addEventListener('click', resetForm);
+
+    // 清空所有 LocalStorage
+    clearAllBtn.addEventListener('click', () => {
+      if (confirm('确定要清空所有 LocalStorage 数据吗？此操作不可恢复！')) {
+        localStorage.clear();
+        showToast('已清空所有数据');
+        renderStorageList();
+      }
+    });
+
+    // 取消删除
+    cancelDeleteBtn.addEventListener('click', () => {
+      confirmModal.classList.remove('show');
+      currentEditKey = null;
+    });
+
+    // 确认删除
+    confirmDeleteBtn.addEventListener('click', () => {
+      if (currentEditKey) {
+        localStorage.removeItem(currentEditKey);
+        confirmModal.classList.remove('show');
+        showToast('删除成功');
+        renderStorageList();
+        currentEditKey = null;
+      }
+    });
+
+    // 渲染 LocalStorage 列表
+    function renderStorageList() {
+      // 清空列表
+      storageList.innerHTML = '';
+
+      const keys = Object.keys(localStorage);
+      
+      if (keys.length === 0) {
+        storageList.innerHTML = `
+          <div class="empty-tip" style="grid-column: 1/-1; text-align: center; padding: 40px; color: #8e8e93;">
+            暂无 LocalStorage 数据
+          </div>
+        `;
+        return;
+      }
+
+      // 遍历所有 key 生成卡片
+      keys.forEach(key => {
+        const value = localStorage.getItem(key);
+        // 格式化值（如果是JSON）
+        let displayValue = value;
+        try {
+          displayValue = JSON.stringify(JSON.parse(value), null, 2);
+        } catch (e) {
+          // 非JSON格式直接显示
+        }
+
+        // 限制显示长度
+        if (displayValue.length > 100) {
+          displayValue = displayValue.substring(0, 100) + '...';
+        }
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="card-body">
+            <h3 class="card-title">${escapeHtml(key)}</h3>
+            <div class="card-sub">存储值</div>
+            <pre class="card-info" style="white-space: pre-wrap; word-break: break-all;">${escapeHtml(displayValue)}</pre>
+          </div>
+          <!-- 编辑按钮 -->
+          <div class="card-graph" data-key="${escapeHtml(key)}" title="编辑">
+            ✏️
+          </div>
+          <!-- 删除按钮 -->
+          <div class="card-delete" data-key="${escapeHtml(key)}" title="删除">
+            🗑️
+          </div>
+        `;
+
+        // 编辑按钮点击事件
+        card.querySelector('.card-graph').addEventListener('click', (e) => {
+          const editKey = e.currentTarget.dataset.key;
+          currentEditKey = editKey;
+          storageKeyInput.value = editKey;
+          storageValueInput.value = localStorage.getItem(editKey);
+          // 滚动到表单顶部
+          document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        // 删除按钮点击事件
+        card.querySelector('.card-delete').addEventListener('click', (e) => {
+          currentEditKey = e.currentTarget.dataset.key;
+          confirmModal.classList.add('show');
+        });
+
+        storageList.appendChild(card);
+      });
+    }
+
+    // 重置表单
+    function resetForm() {
+      storageKeyInput.value = '';
+      storageValueInput.value = '';
+      currentEditKey = null;
+    }
+
+    // 显示提示框
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2000);
+    }
+
+    // HTML 转义（防止XSS）
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
+
