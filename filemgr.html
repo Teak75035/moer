@@ -3,48 +3,415 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LocalStorage 管理器</title>
-  <!-- 引入本地 CSS 文件 -->
-  <link rel="stylesheet" href="style.css">
+  <title>LocalStorage IDE 管理器</title>
+  <!-- Monaco Editor 核心资源（VS Code 同款内核，最新稳定版） -->
+  <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs/editor/editor.main.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs/loader.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: #f5f5f7;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 整体布局 */
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* 左侧侧边栏 */
+    .sidebar {
+      width: 300px;
+      background-color: #fff;
+      border-right: 1px solid #e5e5e7;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border-bottom: 1px solid #e5e5e7;
+    }
+
+    .sidebar-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+
+    .sidebar-actions {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .btn {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+      flex: 1;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background-color: #0071e3;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background-color: #0077ed;
+    }
+
+    .btn-danger {
+      background-color: #ff3b30;
+      color: #fff;
+    }
+
+    .btn-danger:hover {
+      background-color: #ff453a;
+    }
+
+    .btn-secondary {
+      background-color: #f2f2f7;
+      color: #1d1d1f;
+    }
+
+    .btn-secondary:hover {
+      background-color: #e5e5e7;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 13px;
+      flex: none;
+    }
+
+    .sidebar-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .storage-item {
+      padding: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 4px;
+      transition: background-color 0.2s;
+      color: #1d1d1f;
+    }
+
+    .storage-item:hover {
+      background-color: #f2f2f7;
+    }
+
+    .storage-item.active {
+      background-color: #e8f0fe;
+      color: #0071e3;
+      font-weight: 500;
+    }
+
+    .storage-item-key {
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .storage-item-preview {
+      font-size: 12px;
+      color: #8e8e93;
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .empty-tip {
+      padding: 40px 16px;
+      text-align: center;
+      color: #8e8e93;
+      font-size: 14px;
+    }
+
+    /* 右侧编辑器区域 */
+    .editor-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .editor-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #8e8e93;
+      font-size: 16px;
+    }
+
+    .editor-toolbar {
+      padding: 12px 16px;
+      background-color: #fff;
+      border-bottom: 1px solid #e5e5e7;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .editor-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1d1d1f;
+      flex-shrink: 0;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .editor-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #monacoEditor {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Modal 样式 */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .modal.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-content {
+      background-color: #fff;
+      border-radius: 12px;
+      width: 600px;
+      max-width: 90%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1d1d1f;
+    }
+
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #1d1d1f;
+    }
+
+    .form-input {
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid #e5e5e7;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: #0071e3;
+    }
+
+    .modal-textarea {
+      min-height: 200px;
+      resize: vertical;
+      font-family: Menlo, Monaco, Consolas, monospace;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+
+    /* 确认弹窗 */
+    .confirm-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .confirm-modal.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .confirm-box {
+      background-color: #fff;
+      border-radius: 12px;
+      width: 400px;
+      max-width: 90%;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .confirm-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #1d1d1f;
+    }
+
+    .confirm-desc {
+      color: #6e6e73;
+      margin: 12px 0 24px;
+    }
+
+    /* 提示框 */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      padding: 12px 24px;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      border-radius: 6px;
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.2s;
+      z-index: 1001;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
 </head>
 <body>
   <div class="container">
-    <!-- 页面头部 -->
-    <div class="page-header">
-      <h2>LocalStorage 管理器</h2>
-      <button class="btn btn-danger" id="clearAllBtn">
-        <span>清空所有</span>
-      </button>
-    </div>
-
-    <!-- 添加/编辑 LocalStorage 表单 -->
-    <div class="form-section">
-      <div class="form-section-title">添加/编辑存储项</div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label required" for="storageKey">键 (Key)</label>
-          <input type="text" id="storageKey" class="form-input" placeholder="请输入存储键名">
-        </div>
-        <div class="form-group">
-          <label class="form-label required" for="storageValue">值 (Value)</label>
-          <textarea id="storageValue" class="form-textarea" placeholder="请输入存储值（支持JSON格式）"></textarea>
+    <!-- 左侧侧边栏 -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">LocalStorage 列表</div>
+        <div class="sidebar-actions">
+          <button class="btn btn-primary" id="addNewBtn">新建</button>
+          <button class="btn btn-danger" id="clearAllBtn">清空所有</button>
         </div>
       </div>
-      <div style="display: flex; gap: 12px;">
-        <button class="btn" id="saveBtn">保存</button>
-        <button class="btn btn-secondary" id="cancelBtn">取消</button>
+      <div class="sidebar-list" id="storageList">
+        <div class="empty-tip">暂无 LocalStorage 数据</div>
       </div>
     </div>
 
-    <!-- 分割线 -->
-    <div class="divider"></div>
+    <!-- 右侧编辑器区域 -->
+    <div class="editor-wrapper">
+      <div class="editor-empty" id="editorEmpty">
+        <div>请选择或新建一个存储项</div>
+      </div>
+      <div id="editorMain" style="display: none; flex: 1; display: flex; flex-direction: column;">
+        <div class="editor-toolbar">
+          <div class="editor-title" id="currentKeyTitle">键名：-</div>
+          <div class="toolbar-actions">
+            <button class="btn btn-secondary btn-small" id="formatBtn">格式化</button>
+            <button class="btn btn-secondary btn-small" id="foldAllBtn">折叠全部</button>
+            <button class="btn btn-secondary btn-small" id="unfoldAllBtn">展开全部</button>
+            <button class="btn btn-secondary btn-small" id="themeToggleBtn">切换主题</button>
+            <button class="btn btn-secondary btn-small" id="cancelBtn">取消</button>
+            <button class="btn btn-primary btn-small" id="saveBtn">保存修改</button>
+            <button class="btn btn-danger btn-small" id="deleteBtn">删除此项</button>
+          </div>
+        </div>
+        <div class="editor-container">
+          <div id="monacoEditor"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <!-- LocalStorage 列表 -->
-    <div class="form-section-title">当前存储项列表</div>
-    <div id="storageList" class="card-grid">
-      <!-- 存储项卡片将通过JS动态生成 -->
-      <div class="empty-tip" style="grid-column: 1/-1; text-align: center; padding: 40px; color: #8e8e93;">
-        暂无 LocalStorage 数据
+  <!-- 新建存储项 Modal -->
+  <div class="modal" id="addModal">
+    <div class="modal-content">
+      <div class="modal-title">新建存储项</div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="newKey">键 (Key)</label>
+          <input type="text" id="newKey" class="form-input" placeholder="请输入唯一键名">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="newValue">值 (JSON)</label>
+          <textarea id="newValue" class="form-input modal-textarea" placeholder="请输入JSON格式的值，支持一键格式化"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="modalFormatBtn">格式化</button>
+        <button class="btn btn-secondary" id="modalCancelBtn">取消</button>
+        <button class="btn btn-primary" id="modalConfirmBtn">确认创建</button>
       </div>
     </div>
   </div>
@@ -53,8 +420,8 @@
   <div class="confirm-modal" id="confirmModal">
     <div class="confirm-box">
       <div class="confirm-title">确认删除？</div>
-      <p style="text-align: center; color: #6e6e73;">此操作将永久删除该存储项，不可恢复。</p>
-      <div class="confirm-btns">
+      <p class="confirm-desc">此操作将永久删除该存储项，数据不可恢复。</p>
+      <div class="modal-actions">
         <button class="btn btn-secondary" id="cancelDeleteBtn">取消</button>
         <button class="btn btn-danger" id="confirmDeleteBtn">确认删除</button>
       </div>
@@ -65,162 +432,342 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    // 全局变量：当前编辑的key
-    let currentEditKey = null;
+    // 全局变量
+    let monaco = null;
+    let editor = null;
+    let currentKey = null;
+    let currentTheme = 'vs'; // vs 浅色, vs-dark 深色
+    let isEditorReady = false;
+
     // DOM 元素
-    const storageKeyInput = document.getElementById('storageKey');
-    const storageValueInput = document.getElementById('storageValue');
+    const storageList = document.getElementById('storageList');
+    const editorEmpty = document.getElementById('editorEmpty');
+    const editorMain = document.getElementById('editorMain');
+    const currentKeyTitle = document.getElementById('currentKeyTitle');
+    const addNewBtn = document.getElementById('addNewBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const formatBtn = document.getElementById('formatBtn');
+    const foldAllBtn = document.getElementById('foldAllBtn');
+    const unfoldAllBtn = document.getElementById('unfoldAllBtn');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
     const saveBtn = document.getElementById('saveBtn');
     const cancelBtn = document.getElementById('cancelBtn');
-    const clearAllBtn = document.getElementById('clearAllBtn');
-    const storageList = document.getElementById('storageList');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const addModal = document.getElementById('addModal');
+    const newKey = document.getElementById('newKey');
+    const newValue = document.getElementById('newValue');
+    const modalFormatBtn = document.getElementById('modalFormatBtn');
+    const modalCancelBtn = document.getElementById('modalCancelBtn');
+    const modalConfirmBtn = document.getElementById('modalConfirmBtn');
     const confirmModal = document.getElementById('confirmModal');
     const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
     const toast = document.getElementById('toast');
 
-    // 初始化：加载 LocalStorage 列表
-    document.addEventListener('DOMContentLoaded', renderStorageList);
+    // 初始化 Monaco Editor
+    require.config({
+      paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs' }
+    });
 
-    // 保存/编辑 存储项
-    saveBtn.addEventListener('click', () => {
-      const key = storageKeyInput.value.trim();
-      const value = storageValueInput.value.trim();
+    require(['vs/editor/editor.main'], function (monacoInstance) {
+      monaco = monacoInstance;
+      
+      // 初始化编辑器
+      editor = monaco.editor.create(document.getElementById('monacoEditor'), {
+        value: '',
+        language: 'json',
+        theme: currentTheme,
+        // IDE 核心配置
+        automaticLayout: true, // 自动适配容器大小
+        tabSize: 2,
+        insertSpaces: true,
+        lineNumbers: 'on', // 行号
+        minimap: { enabled: true }, // 右侧缩略图
+        scrollBeyondLastLine: false,
+        renderLineHighlight: 'line', // 当前行高亮
+        bracketPairColorization: { enabled: true }, // 括号配对颜色
+        guides: { bracketPairs: true, indentation: true }, // 缩进参考线
+        folding: true, // 代码折叠
+        formatOnPaste: true, // 粘贴自动格式化
+        formatOnType: true, // 输入自动格式化
+        autoClosingBrackets: 'always', // 自动补全括号
+        autoClosingQuotes: 'always', // 自动补全引号
+        wordWrap: 'on', // 自动换行
+        glyphMargin: true, // 错误图标边距
+        lightbulb: { enabled: true }, // 修复提示灯泡
+        quickSuggestions: {
+          strings: true,
+          comments: true,
+          other: true
+        }, // 智能提示
+        suggestOnTriggerCharacters: true, // 触发字符自动提示
+        acceptSuggestionOnEnter: 'on', // 回车接受建议
+        tabCompletion: 'on', // Tab补全
+      });
+
+      // 注册JSON语言配置，开启完整校验
+      monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+        validate: true, // 开启语法校验
+        allowComments: true, // 允许注释
+        allowTrailingCommas: true, // 允许尾逗号
+        schemaValidation: 'error', // schema校验级别
+      });
+
+      // 编辑器就绪标记
+      isEditorReady = true;
+      // 初始化列表
+      renderStorageList();
+      // 绑定编辑器事件
+      bindEditorEvents();
+    });
+
+    // 绑定所有事件
+    function bindEditorEvents() {
+      // 列表相关
+      addNewBtn.addEventListener('click', openAddModal);
+      clearAllBtn.addEventListener('click', clearAllStorage);
+      
+      // 编辑器工具栏
+      formatBtn.addEventListener('click', formatEditorContent);
+      foldAllBtn.addEventListener('click', foldAllContent);
+      unfoldAllBtn.addEventListener('click', unfoldAllContent);
+      themeToggleBtn.addEventListener('click', toggleTheme);
+      saveBtn.addEventListener('click', saveCurrentItem);
+      cancelBtn.addEventListener('click', cancelEdit);
+      deleteBtn.addEventListener('click', openDeleteConfirm);
+
+      // Modal 相关
+      modalCancelBtn.addEventListener('click', closeAddModal);
+      modalFormatBtn.addEventListener('click', formatModalContent);
+      modalConfirmBtn.addEventListener('click', createNewItem);
+      addModal.addEventListener('click', (e) => e.target === addModal && closeAddModal());
+
+      // 删除确认相关
+      cancelDeleteBtn.addEventListener('click', closeDeleteConfirm);
+      confirmDeleteBtn.addEventListener('click', deleteCurrentItem);
+      confirmModal.addEventListener('click', (e) => e.target === confirmModal && closeDeleteConfirm());
+
+      // 窗口大小变化适配
+      window.addEventListener('resize', () => editor?.layout());
+    }
+
+    // 渲染存储项列表
+    function renderStorageList() {
+      const keys = Object.keys(localStorage);
+      storageList.innerHTML = '';
+
+      if (keys.length === 0) {
+        storageList.innerHTML = '<div class="empty-tip">暂无 LocalStorage 数据</div>';
+        return;
+      }
+
+      keys.forEach(key => {
+        const value = localStorage.getItem(key);
+        const preview = getValuePreview(value);
+        const item = document.createElement('div');
+        item.className = `storage-item ${currentKey === key ? 'active' : ''}`;
+        item.dataset.key = escapeHtml(key);
+        item.innerHTML = `
+          <div class="storage-item-key">${escapeHtml(key)}</div>
+          <div class="storage-item-preview">${preview}</div>
+        `;
+        item.addEventListener('click', () => selectItem(key));
+        storageList.appendChild(item);
+      });
+    }
+
+    // 获取值预览
+    function getValuePreview(value) {
+      if (!value) return '空值';
+      try {
+        const obj = JSON.parse(value);
+        return JSON.stringify(obj).substring(0, 50) + (JSON.stringify(obj).length > 50 ? '...' : '');
+      } catch (e) {
+        return value.substring(0, 50) + (value.length > 50 ? '...' : '');
+      }
+    }
+
+    // 选中存储项
+    function selectItem(key) {
+      if (!isEditorReady) return;
+      
+      currentKey = key;
+      currentKeyTitle.textContent = `键名：${key}`;
+      
+      // 更新列表选中状态
+      document.querySelectorAll('.storage-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.key === escapeHtml(key));
+      });
+
+      // 加载内容到编辑器
+      const value = localStorage.getItem(key) || '';
+      let formattedValue = value;
+      
+      // 自动格式化JSON
+      try {
+        formattedValue = JSON.stringify(JSON.parse(value), null, 2);
+      } catch (e) {}
+
+      editor.setValue(formattedValue);
+      // 切换到JSON语言模式
+      monaco.editor.setModelLanguage(editor.getModel(), 'json');
+      
+      // 显示编辑器
+      showEditor();
+    }
+
+    // 显示/隐藏编辑器
+    function showEditor() {
+      editorEmpty.style.display = 'none';
+      editorMain.style.display = 'flex';
+    }
+
+    function hideEditor() {
+      editorEmpty.style.display = 'flex';
+      editorMain.style.display = 'none';
+      currentKey = null;
+      currentKeyTitle.textContent = '键名：-';
+      editor?.setValue('');
+    }
+
+    // 编辑器核心功能
+    function formatEditorContent() {
+      editor.getAction('editor.action.formatDocument').run();
+      showToast('格式化完成');
+    }
+
+    function foldAllContent() {
+      editor.getAction('editor.foldAll').run();
+    }
+
+    function unfoldAllContent() {
+      editor.getAction('editor.unfoldAll').run();
+    }
+
+    function toggleTheme() {
+      currentTheme = currentTheme === 'vs' ? 'vs-dark' : 'vs';
+      monaco.editor.setTheme(currentTheme);
+      themeToggleBtn.textContent = currentTheme === 'vs' ? '深色主题' : '浅色主题';
+    }
+
+    function cancelEdit() {
+      if (currentKey) {
+        selectItem(currentKey); // 重置为原始值
+        showToast('已重置修改');
+      } else {
+        hideEditor();
+      }
+    }
+
+    // 保存当前项
+    function saveCurrentItem() {
+      if (!currentKey || !isEditorReady) return;
+
+      const content = editor.getValue().trim();
+      // 校验JSON格式
+      try {
+        JSON.parse(content);
+      } catch (e) {
+        if (!confirm('内容不是有效的JSON格式，是否仍要保存？')) return;
+      }
+
+      localStorage.setItem(currentKey, content);
+      showToast('保存成功');
+      renderStorageList();
+      // 重新格式化显示
+      try {
+        const formatted = JSON.stringify(JSON.parse(content), null, 2);
+        editor.setValue(formatted);
+      } catch (e) {}
+    }
+
+    // 新建相关
+    function openAddModal() {
+      newKey.value = '';
+      newValue.value = '{}';
+      addModal.classList.add('show');
+      newKey.focus();
+    }
+
+    function closeAddModal() {
+      addModal.classList.remove('show');
+    }
+
+    function formatModalContent() {
+      const content = newValue.value.trim();
+      try {
+        const formatted = JSON.stringify(JSON.parse(content), null, 2);
+        newValue.value = formatted;
+        showToast('格式化完成');
+      } catch (e) {
+        showToast('JSON格式错误，无法格式化');
+      }
+    }
+
+    function createNewItem() {
+      const key = newKey.value.trim();
+      const value = newValue.value.trim();
 
       if (!key) {
         showToast('请输入有效的键名');
         return;
       }
 
+      if (localStorage.getItem(key)) {
+        showToast('键名已存在，请更换');
+        return;
+      }
+
+      // 校验JSON
       try {
-        // 尝试解析JSON（如果是JSON格式）
         JSON.parse(value);
       } catch (e) {
-        // 不是JSON也不影响，直接存储字符串
+        if (!confirm('内容不是有效的JSON格式，是否仍要保存？')) return;
       }
 
       localStorage.setItem(key, value);
-      showToast(currentEditKey ? '编辑成功' : '添加成功');
-      resetForm();
+      closeAddModal();
+      showToast('创建成功');
       renderStorageList();
-    });
+      selectItem(key); // 自动选中新建项
+    }
 
-    // 取消编辑
-    cancelBtn.addEventListener('click', resetForm);
+    // 删除相关
+    function openDeleteConfirm() {
+      if (currentKey) confirmModal.classList.add('show');
+    }
 
-    // 清空所有 LocalStorage
-    clearAllBtn.addEventListener('click', () => {
+    function closeDeleteConfirm() {
+      confirmModal.classList.remove('show');
+    }
+
+    function deleteCurrentItem() {
+      if (!currentKey) return;
+
+      localStorage.removeItem(currentKey);
+      closeDeleteConfirm();
+      showToast('删除成功');
+      renderStorageList();
+      hideEditor();
+    }
+
+    // 清空所有
+    function clearAllStorage() {
       if (confirm('确定要清空所有 LocalStorage 数据吗？此操作不可恢复！')) {
         localStorage.clear();
         showToast('已清空所有数据');
         renderStorageList();
+        hideEditor();
       }
-    });
-
-    // 取消删除
-    cancelDeleteBtn.addEventListener('click', () => {
-      confirmModal.classList.remove('show');
-      currentEditKey = null;
-    });
-
-    // 确认删除
-    confirmDeleteBtn.addEventListener('click', () => {
-      if (currentEditKey) {
-        localStorage.removeItem(currentEditKey);
-        confirmModal.classList.remove('show');
-        showToast('删除成功');
-        renderStorageList();
-        currentEditKey = null;
-      }
-    });
-
-    // 渲染 LocalStorage 列表
-    function renderStorageList() {
-      // 清空列表
-      storageList.innerHTML = '';
-
-      const keys = Object.keys(localStorage);
-      
-      if (keys.length === 0) {
-        storageList.innerHTML = `
-          <div class="empty-tip" style="grid-column: 1/-1; text-align: center; padding: 40px; color: #8e8e93;">
-            暂无 LocalStorage 数据
-          </div>
-        `;
-        return;
-      }
-
-      // 遍历所有 key 生成卡片
-      keys.forEach(key => {
-        const value = localStorage.getItem(key);
-        // 格式化值（如果是JSON）
-        let displayValue = value;
-        try {
-          displayValue = JSON.stringify(JSON.parse(value), null, 2);
-        } catch (e) {
-          // 非JSON格式直接显示
-        }
-
-        // 限制显示长度
-        if (displayValue.length > 100) {
-          displayValue = displayValue.substring(0, 100) + '...';
-        }
-
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <div class="card-body">
-            <h3 class="card-title">${escapeHtml(key)}</h3>
-            <div class="card-sub">存储值</div>
-            <pre class="card-info" style="white-space: pre-wrap; word-break: break-all;">${escapeHtml(displayValue)}</pre>
-          </div>
-          <!-- 编辑按钮 -->
-          <div class="card-graph" data-key="${escapeHtml(key)}" title="编辑">
-            ✏️
-          </div>
-          <!-- 删除按钮 -->
-          <div class="card-delete" data-key="${escapeHtml(key)}" title="删除">
-            🗑️
-          </div>
-        `;
-
-        // 编辑按钮点击事件
-        card.querySelector('.card-graph').addEventListener('click', (e) => {
-          const editKey = e.currentTarget.dataset.key;
-          currentEditKey = editKey;
-          storageKeyInput.value = editKey;
-          storageValueInput.value = localStorage.getItem(editKey);
-          // 滚动到表单顶部
-          document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
-        });
-
-        // 删除按钮点击事件
-        card.querySelector('.card-delete').addEventListener('click', (e) => {
-          currentEditKey = e.currentTarget.dataset.key;
-          confirmModal.classList.add('show');
-        });
-
-        storageList.appendChild(card);
-      });
     }
 
-    // 重置表单
-    function resetForm() {
-      storageKeyInput.value = '';
-      storageValueInput.value = '';
-      currentEditKey = null;
-    }
-
-    // 显示提示框
+    // 工具函数
     function showToast(message) {
       toast.textContent = message;
       toast.classList.add('show');
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, 2000);
+      setTimeout(() => toast.classList.remove('show'), 2500);
     }
 
-    // HTML 转义（防止XSS）
     function escapeHtml(str) {
       if (!str) return '';
       return str.replace(/&/g, '&amp;')
@@ -229,7 +776,11 @@
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
     }
+
+    // 页面卸载时销毁编辑器，防止内存泄漏
+    window.addEventListener('beforeunload', () => {
+      editor?.dispose();
+    });
   </script>
 </body>
 </html>
-

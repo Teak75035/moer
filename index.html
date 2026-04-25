@@ -66,14 +66,14 @@
   <div class="modal" id="char-modal">
     <div class="modal-box">
       <div class="modal-header">
-        <h3 class="modal-title" id="char-modal-title">编辑人物</h3>
+        <h3 class="modal-title" id="char-modal-title"> </h3>
         <button class="modal-close" id="char-close">&times;</button>
       </div>
       <div class="modal-body">
         <form id="char-form">
           <!-- 基本信息分组 -->
           <div class="form-section">
-            <div class="form-section-title">基本信息</div>
+            <div class="form-section-title">　</div>
             <div class="form-grid">
               <div class="form-group">
                 <label class="form-label required">角色名称</label>
@@ -297,6 +297,19 @@
 
   <!-- 提示 -->
   <div class="toast" id="toast"></div>
+
+  <!-- 新增：详情预览弹窗 -->
+  <div id="detail-modal" class="modal">
+    <div class="modal-box detail-modal-box">
+      <div class="modal-header">
+        <div class="modal-title" id="detail-title">详情</div>
+        <button class="modal-close" id="detail-close">×</button>
+      </div>
+      <div class="modal-body" id="detail-body">
+        <!-- 详情内容通过JS渲染 -->
+      </div>
+    </div>
+  </div>
 
 
 </body>

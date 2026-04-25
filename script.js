@@ -1,4 +1,4 @@
-    // 等待DOM加载完成后执行所有逻辑
+// 等待DOM加载完成后执行所有逻辑
     document.addEventListener('DOMContentLoaded', function() {
       // UUID
       function uuid() {
@@ -537,10 +537,11 @@
           const work = works.find(w => w.id === c.workId) || { name: '未知作品' };
           const card = document.createElement('div');
           card.className = 'card';
+          // 卡片点击绑定详情（排除菜单区域）
+          card.addEventListener('click', (e) => {
+            if (!e.target.closest('.card-menu')) openCharDetail(c.id);
+          });
           card.innerHTML = `
-            <div class="card-delete" data-id="${c.id}" data-type="char">
-              <span class="material-icons" style="font-size:20px;">delete</span>
-            </div>
             ${c.images?.length ? `<img src="${c.images[0]}" class="card-img">`
               : '<div class="card-img-empty"><span class="material-icons">person</span></div>'}
             <div class="card-body">
@@ -548,29 +549,20 @@
               <div class="card-sub">${c.nick || '无昵称'} | ${work.name}</div>
               <div class="card-info">MBTI：${c.mbti || '未设置'} | 生日：${c.birth || '未设置'}</div>
             </div>
-            <div class="card-graph" data-id="${c.id}" data-work-id="${c.workId}">
-              <span class="material-icons" style="font-size:20px;">share</span>
+            <!-- 新增：右下角二级菜单 -->
+            <div class="card-menu">
+              <button class="menu-trigger" onclick="toggleMenu(event)">⋮</button>
+              <div class="menu-panel">
+                <div class="menu-item" onclick="event.stopPropagation(); openGraph('${c.workId}')">星图</div>
+                <div class="menu-item" onclick="event.stopPropagation(); openCharEdit('${c.id}')">编辑</div>
+                <div class="menu-item menu-item-danger" onclick="event.stopPropagation(); confirmDeleteChar('${c.id}', '${c.name}')">删除</div>
+              </div>
             </div>
           `;
-          
-          // 删除按钮事件
-          card.querySelector('.card-delete').addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteTarget = { type: 'char', id: c.id };
-            document.getElementById('confirm-title').textContent = `确定要删除「${c.name}」吗？`;
-            document.getElementById('confirm-modal').classList.add('show');
-          });
-          
-          // 星图按钮事件 - 修改为调用 openGraph
-          card.querySelector('.card-graph').addEventListener('click', (e) => {
-            e.stopPropagation();
-            openGraph(c.workId);
-          });
-          
-          card.addEventListener('click', () => openCharEdit(c.id));
           list.appendChild(card);
         });
       }
+
 
       function fillWorkSelect() {
         const { works } = getData();
@@ -722,10 +714,11 @@
         works.forEach(w => {
           const card = document.createElement('div');
           card.className = 'card';
+          // 卡片点击绑定详情（排除菜单区域）
+          card.addEventListener('click', (e) => {
+            if (!e.target.closest('.card-menu')) openWorkDetail(w.id);
+          });
           card.innerHTML = `
-            <div class="card-delete" data-id="${w.id}" data-type="work">
-              <span class="material-icons" style="font-size:20px;">delete</span>
-            </div>
             <div class="card-img-empty" style="height:120px;">
               <span class="material-icons" style="font-size:48px;">book</span>
             </div>
@@ -733,17 +726,15 @@
               <div class="card-title">${w.name}</div>
               <div class="card-info" style="margin-top:8px;">${w.desc || '暂无简介'}</div>
             </div>
+            <!-- 新增：右下角二级菜单 -->
+            <div class="card-menu">
+              <button class="menu-trigger" onclick="toggleMenu(event)">⋮</button>
+              <div class="menu-panel">
+                <div class="menu-item" onclick="event.stopPropagation(); openWorkEdit('${w.id}')">编辑</div>
+                <div class="menu-item menu-item-danger" onclick="event.stopPropagation(); confirmDeleteWork('${w.id}', '${w.name}')">删除</div>
+              </div>
+            </div>
           `;
-          
-          // 删除按钮事件
-          card.querySelector('.card-delete').addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteTarget = { type: 'work', id: w.id };
-            document.getElementById('confirm-title').textContent = `确定要删除「${w.name}」吗？删除后所有关联角色也会被删除`;
-            document.getElementById('confirm-modal').classList.add('show');
-          });
-          
-          card.addEventListener('click', () => openWorkEdit(w.id));
           list.appendChild(card);
         });
       }
@@ -1126,10 +1117,382 @@ function openGraph(workId) {
         deleteTarget = { type: '', id: '' };
       });
 
+      // 新增：切换二级菜单
+      function toggleMenu(e) {
+        e.stopPropagation();
+        // 找到真正的 menu-trigger 按钮
+        const trigger = e.target.closest('.menu-trigger');
+        if (!trigger) return;
+
+        // 获取菜单面板
+        const panel = trigger.nextElementSibling;
+        if (!panel || !panel.classList.contains('menu-panel')) return;
+
+        // 关闭其他菜单
+        document.querySelectorAll('.menu-panel.show').forEach(p => {
+          if (p !== panel) p.classList.remove('show');
+        });
+
+        // 切换当前菜单
+        panel.classList.toggle('show');
+
+        // 点击菜单项时阻止冒泡
+        panel.querySelectorAll('.menu-item').forEach(item => {
+          item.addEventListener('click', (ev) => ev.stopPropagation());
+        });
+
+        // 点击其他地方关闭菜单
+        const closeMenu = (ev) => {
+          // 如果点击的不是当前菜单和触发按钮，则关闭菜单
+          if (!panel.contains(ev.target) && !trigger.contains(ev.target)) {
+            panel.classList.remove('show');
+            document.removeEventListener('click', closeMenu);
+          }
+        };
+        document.addEventListener('click', closeMenu);
+      }
+
+      // 新增：确认删除角色/作品
+      function confirmDeleteChar(id, name) {
+        deleteTarget = { type: 'char', id };
+        document.getElementById('confirm-title').textContent = `确定要删除「${name}」吗？`;
+        document.getElementById('confirm-modal').classList.add('show');
+      }
+      function confirmDeleteWork(id, name) {
+        deleteTarget = { type: 'work', id };
+        document.getElementById('confirm-title').textContent = `确定要删除「${name}」吗？删除后所有关联角色也会被删除`;
+        document.getElementById('confirm-modal').classList.add('show');
+      }
+
+      // XSS 防護工具函數
+      function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>"']/g, (m) => {
+          const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+          return map[m];
+        });
+      }
+
+      // 優化後的 openCharDetail
+      function openCharDetail(id) {
+        const { chars, works } = getData();
+        const c = chars.find(x => x.id === id);
+        if (!c) { console.warn('未找到角色:', id); return; }
+        const work = works.find(w => w.id === c.workId) || { name: '未知作品' };
+
+        // 獲取現有 DOM 元素
+        const modal = document.getElementById('detail-modal');
+        const titleEl = document.getElementById('detail-title');
+        const closeBtn = document.getElementById('detail-close');
+        const bodyEl = document.getElementById('detail-body');
+
+        // 1. 設定標題文字
+        titleEl.textContent = c.name;
+
+        // 2. 動態生成 Banner HTML (如果有設計圖)
+        const hasBanner = c.designImages?.length > 0;
+        const bannerHtml = hasBanner ? `
+          <div class="detail-banner">
+            <div class="banner-scroll">
+              ${c.designImages.map(img => `
+                <img src="${escapeHtml(img)}" class="banner-img" loading="lazy" onerror="this.style.display='none'">
+              `).join('')}
+            </div>
+            <div class="banner-mask"></div>
+          </div>
+        ` : '';
+
+        // 3. 動態改變 Header 樣式 (如果有 Banner，變成白色文字/半透明背景)
+        if (hasBanner) {
+          titleEl.style.color = '#fff';
+          titleEl.style.textShadow = '0 2px 8px rgba(0,0,0,0.3)';
+          closeBtn.style.cssText = 'background: rgba(255,255,255,0.2); color: #fff;';
+        } else {
+          // 恢復預設樣式
+          titleEl.style.color = '#303133';
+          titleEl.style.textShadow = 'none';
+          closeBtn.style.cssText = '';
+        }
+
+        // 4. 生成核心內容 HTML
+        const coreInfoHtml = `
+          <div class="core-info-grid">
+            <div class="info-card"><div class="info-label">昵称</div><div class="info-value">${escapeHtml(c.nick || '未设置')}</div></div>
+            <div class="info-card"><div class="info-label">所属作品</div><div class="info-value">${escapeHtml(work.name)}</div></div>
+            <div class="info-card"><div class="info-label">MBTI</div><div class="info-value">${escapeHtml(c.mbti || '未设置')}</div></div>
+            <div class="info-card"><div class="info-label">生日</div><div class="info-value">${escapeHtml(c.birth || '未设置')}</div></div>
+          </div>
+        `;
+
+        const descHtml = `
+          <div class="detail-section">
+            <div class="section-label">设计描述</div>
+            <div class="section-content">${escapeHtml(c.design || '无')}</div>
+          </div>
+          <div class="detail-section">
+            <div class="section-label">性格特点</div>
+            <div class="section-content">${escapeHtml(c.personality || '无')}</div>
+          </div>
+          <div class="detail-section">
+            <div class="section-label">基础设定</div>
+            <div class="section-content">${escapeHtml(c.base || '无')}</div>
+          </div>
+        `;
+
+        const charImageHtml = c.images?.length ? `
+          <div class="detail-section">
+            <div class="section-label">角色图</div>
+            <div class="detail-gallery">
+              ${c.images.map(img => `<img src="${escapeHtml(img)}" class="gallery-img" loading="lazy" onerror="this.style.display='none'">`).join('')}
+            </div>
+          </div>
+        ` : '';
+
+        const relationHtml = (c.relations || []).length ? `
+          <div class="detail-section">
+            <div class="section-label">人物关系</div>
+            <div class="relation-wrap">
+              ${c.relations.map(r => {
+                const target = chars.find(t => t.id === r.targetId);
+                const note = r.note ? `（${escapeHtml(r.note)}）` : '';
+                return `<span class="relation-tag">${escapeHtml(target?.name || '未知')} · ${escapeHtml(r.type || r.custom || '自定義')}${note}</span>`;
+              }).join('')}
+            </div>
+          </div>
+        ` : '';
+
+        // 5. 組裝並寫入 modal-body
+        // 判斷如果沒有 Banner，給內容區加一個上 Padding，避開 Header
+        const contentPaddingTop = hasBanner ? '' : 'padding-top: 60px;';
+
+        bodyEl.innerHTML = `
+          ${bannerHtml}
+          <div class="detail-content-inner" style="${contentPaddingTop}">
+            ${coreInfoHtml}
+            ${descHtml}
+            ${charImageHtml}
+            ${relationHtml}
+          </div>
+        `;
+
+        // 6. 顯示彈窗
+        modal.classList.add('show');
+      }
+
+      // --- 記得綁定關閉按鈕的事件 (如果原本沒有的話) ---
+      document.getElementById('detail-close').addEventListener('click', () => {
+        document.getElementById('detail-modal').classList.remove('show');
+      });
+      // 點擊背景也可以關閉 (選擇性添加)
+      document.getElementById('detail-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'detail-modal') {
+          document.getElementById('detail-modal').classList.remove('show');
+        }
+      });
+
+      // 新增：打开作品详情
+      function openWorkDetail(id) {
+        const { works, chars } = getData();
+        const w = works.find(x => x.id === id);
+        const relatedChars = chars.filter(c => c.workId === id);
+        document.getElementById('detail-title').textContent = w.name;
+        document.getElementById('detail-body').innerHTML = `
+          <div class="detail-grid">
+            <div class="detail-item-full"><div class="detail-label">作品简介</div><div class="detail-value">${w.desc || '无'}</div></div>
+            <div class="detail-item-full"><div class="detail-label">世界观设定</div><div class="detail-value">${w.world || '无'}</div></div>
+            ${relatedChars.length ? `<div class="detail-item-full"><div class="detail-label">关联角色</div><div class="detail-chars">${relatedChars.map(c => `<span class="char-tag">${c.images?.length ? `<img src="${c.images[0]}" class="char-tag-img">` : ''}${c.name}</span>`).join('')}</div></div>` : ''}
+          </div>
+        `;
+        document.getElementById('detail-modal').classList.add('show');
+      }
+
+      // 绑定详情弹窗关闭
+      document.getElementById('detail-close').addEventListener('click', () => {
+        document.getElementById('detail-modal').classList.remove('show');
+      });
+
+
+      // ================== 初始化 ==================
+      // 優化後的 openCharDetail
+      function openCharDetail(id) {
+        const { chars, works } = getData();
+        const c = chars.find(x => x.id === id);
+        if (!c) { console.warn('未找到角色:', id); return; }
+        const work = works.find(w => w.id === c.workId) || { name: '未知作品' };
+        // 獲取現有 DOM 元素
+        const modal = document.getElementById('detail-modal');
+        const titleEl = document.getElementById('detail-title');
+        const closeBtn = document.getElementById('detail-close');
+        const bodyEl = document.getElementById('detail-body');
+        // 1. 設定標題文字
+        titleEl.textContent = c.name;
+        // 2. 動態生成 Banner HTML (如果有設計圖)
+        const hasBanner = c.designImages?.length > 0;
+        const bannerHtml = hasBanner ? `
+          <div class="detail-banner">
+            <div class="banner-scroll">
+              ${c.designImages.map(img => `
+                <img src="${escapeHtml(img)}" class="banner-img" loading="lazy" onerror="this.style.display='none'">
+              `).join('')}
+            </div>
+            <div class="banner-mask"></div>
+          </div>
+        ` : '';
+        // 3. 動態改變 Header 樣式 (如果有 Banner，變成白色文字/半透明背景)
+        if (hasBanner) {
+          titleEl.style.color = '#fff';
+          titleEl.style.textShadow = '0 2px 8px rgba(0,0,0,0.3)';
+          closeBtn.style.cssText = 'background: rgba(255,255,255,0.2); color: #fff;';
+        } else {
+          // 恢復預設樣式
+          titleEl.style.color = '#303133';
+          titleEl.style.textShadow = 'none';
+          closeBtn.style.cssText = '';
+        }
+        // 4. 生成核心內容 HTML
+        const coreInfoHtml = `
+          <div class="core-info-grid">
+            <div class="info-card"><div class="info-label">昵称</div><div class="info-value">${escapeHtml(c.nick || '未设置')}</div></div>
+            <div class="info-card"><div class="info-label">所属作品</div><div class="info-value">${escapeHtml(work.name)}</div></div>
+            <div class="info-card"><div class="info-label">MBTI</div><div class="info-value">${escapeHtml(c.mbti || '未设置')}</div></div>
+            <div class="info-card"><div class="info-label">生日</div><div class="info-value">${escapeHtml(c.birth || '未设置')}</div></div>
+          </div>
+        `;
+        const descHtml = `
+          <div class="detail-section">
+            <div class="section-label">设计描述</div>
+            <div class="section-content">${escapeHtml(c.design || '无')}</div>
+          </div>
+          <div class="detail-section">
+            <div class="section-label">性格特点</div>
+            <div class="section-content">${escapeHtml(c.personality || '无')}</div>
+          </div>
+          <div class="detail-section">
+            <div class="section-label">基础设定</div>
+            <div class="section-content">${escapeHtml(c.base || '无')}</div>
+          </div>
+        `;
+
+        // ================== 核心修改：完整展示所有图片 ==================
+        // 合并角色图和设计图（可选，也可分开展示）
+        const allImages = [
+          ...(c.images || []),
+          ...(c.designImages || [])
+        ];
+
+        const charImageHtml = allImages.length ? `
+          <div class="detail-section">
+            <div class="section-label">全部图片 (${allImages.length})</div>
+            <div class="detail-gallery">
+              ${allImages.map(img => `
+                <div class="gallery-item">
+                  <img src="${escapeHtml(img)}" class="gallery-img" loading="lazy" onerror="this.style.display='none'">
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : '';
+        // ====================================================================
+
+        const relationHtml = (c.relations || []).length ? `
+          <div class="detail-section">
+            <div class="section-label">人物关系</div>
+            <div class="relation-wrap">
+              ${c.relations.map(r => {
+                const target = chars.find(t => t.id === r.targetId);
+                const note = r.note ? `（${escapeHtml(r.note)}）` : '';
+                return `<span class="relation-tag">${escapeHtml(target?.name || '未知')} · ${escapeHtml(r.type || r.custom || '自定義')}${note}</span>`;
+              }).join('')}
+            </div>
+          </div>
+        ` : '';
+        // 5. 組裝並寫入 modal-body
+        // 判斷如果沒有 Banner，給內容區加一個上 Padding，避開 Header
+        const contentPaddingTop = hasBanner ? '' : 'padding-top: 60px;';
+        bodyEl.innerHTML = `
+          ${bannerHtml}
+          <div class="detail-content-inner" style="${contentPaddingTop}">
+            ${coreInfoHtml}
+            ${descHtml}
+            ${charImageHtml}
+            ${relationHtml}
+          </div>
+        `;
+
+        // ================== 核心新增：给详情页内图片绑定点击预览事件 ==================
+        const previewImg = document.getElementById('preview-img');
+        const previewOverlay = document.getElementById('image-preview-overlay');
+
+        // 给 Banner 图片添加点击事件
+        bodyEl.querySelectorAll('.banner-img').forEach(img => {
+          img.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止冒泡，避免误触详情页关闭
+            previewImg.src = img.src;
+            previewOverlay.classList.add('show');
+          });
+        });
+
+        // 给图库图片添加点击事件
+        bodyEl.querySelectorAll('.gallery-img').forEach(img => {
+          img.addEventListener('click', (e) => {
+            e.stopPropagation();
+            previewImg.src = img.src;
+            previewOverlay.classList.add('show');
+          });
+        });
+        // ================================================================================
+
+        // 6. 顯示彈窗
+        modal.classList.add('show');
+      }
+
+      // --- 記得綁定關閉按鈕的事件 (如果原本沒有的話) ---
+      document.getElementById('detail-close').addEventListener('click', () => {
+        document.getElementById('detail-modal').classList.remove('show');
+      });
+      // 點擊背景也可以關閉 (選擇性添加)
+      document.getElementById('detail-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'detail-modal') {
+          document.getElementById('detail-modal').classList.remove('show');
+        }
+      });
+
+      // 新增：打开作品详情
+      function openWorkDetail(id) {
+        const { works, chars } = getData();
+        const w = works.find(x => x.id === id);
+        const relatedChars = chars.filter(c => c.workId === id);
+        document.getElementById('detail-title').textContent = w.name;
+        document.getElementById('detail-body').innerHTML = `
+          <div class="detail-grid">
+            <div class="detail-item-full"><div class="detail-label">作品简介</div><div class="detail-value">${w.desc || '无'}</div></div>
+            <div class="detail-item-full"><div class="detail-label">世界观设定</div><div class="detail-value">${w.world || '无'}</div></div>
+            ${relatedChars.length ? `<div class="detail-item-full"><div class="detail-label">关联角色</div><div class="detail-chars">${relatedChars.map(c => `<span class="char-tag">${c.images?.length ? `<img src="${c.images[0]}" class="char-tag-img">` : ''}${c.name}</span>`).join('')}</div></div>` : ''}
+          </div>
+        `;
+        document.getElementById('detail-modal').classList.add('show');
+      }
+
+      // 绑定详情弹窗关闭
+      document.getElementById('detail-close').addEventListener('click', () => {
+        document.getElementById('detail-modal').classList.remove('show');
+      });
+
+
       // ================== 初始化 ==================
       initStorage();
       initImageCarousel();
       renderChars();
       renderWorks();
       renderBirthday();
+      // 默认渲染第一个标签页
+      document.querySelector('.tab-item').click();
+
+      // 修复：暴露所有需要全局访问的函数
+      window.openCharEdit = openCharEdit;
+      window.openGraph = openGraph;
+      window.confirmDeleteChar = confirmDeleteChar;
+      window.confirmDeleteWork = confirmDeleteWork;
+      window.openWorkEdit = openWorkEdit;
+      window.toggleMenu = toggleMenu;
     });

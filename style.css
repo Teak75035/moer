@@ -647,7 +647,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -918,7 +918,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10000;
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1020,4 +1020,403 @@ body {
   #graph-canvas {
     height: 400px;
   }
+}
+
+/* ------------------ 平面化二级菜单 ------------------ */
+.card-menu {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 10;
+}
+.menu-trigger {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #fff;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  color: #6e6e73;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: all 0.2s;
+}
+.menu-trigger:hover { background: #f5f6f8; color: #1d1d1f; }
+.menu-panel {
+  position: absolute;
+  right: 0;
+  bottom: 40px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  padding: 8px 0;
+  min-width: 120px;
+  display: none;
+  z-index: 20;
+}
+.menu-panel.show { display: block; opacity: 1; transition: opacity 0.2s ease; }
+.menu-item {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: #1d1d1f;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.menu-item:hover { background: #f5f6f8; }
+.menu-item-danger { color: #ff3b30; }
+.menu-item-danger:hover { background: #fff5f5; }
+
+/* ------------------ 平面化详情弹窗 ------------------ */
+.detail-modal-box { max-width: 800px; }
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+.detail-item { display: flex; flex-direction: column; gap: 6px; }
+.detail-item-full { grid-column: 1 / -1; }
+.detail-label { font-size: 14px; font-weight: 500; color: #6e6e73; }
+.detail-value {
+  font-size: 15px;
+  color: #1d1d1f;
+  line-height: 1.6;
+  padding: 10px 0;
+  border-bottom: 1px solid #f5f6f8;
+}
+.detail-images { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.detail-img { max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: contain; background: #f8f9fb; }
+.detail-relations { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.relation-tag { padding: 6px 12px; background: #f5f6f8; border-radius: 8px; font-size: 14px; }
+.detail-chars { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+.char-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f5f6f8;
+  border-radius: 12px;
+  font-size: 14px;
+}
+.char-tag-img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+
+/* ------------------ 隐藏原卡片按钮 ------------------ */
+.card-delete, .card-graph { display: none !important; }
+
+/* --- 1. 基礎模態框樣式（適配你現有的類名） --- */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  animation: modalFadeIn 0.3s ease;
+}
+.modal.show { /* 你原本的 JS 是加 .show 類，這裡保留 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+.modal-box {
+  width: 100%;
+  max-width: 1000px;
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideUp 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  position: relative; /* 新增：讓子元素的 absolute 定位以此為基準 */
+}
+
+.modal-header {
+  position: absolute; /* 改為絕對定位，浮在內容上方 */
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20; /* 保證在最上層 */
+  padding: 16px 24px;
+  background: transparent; 
+  border-bottom: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #303133; /* 預設顏色，有 Banner 時 JS 會動態改成白色 */
+  transition: color 0.3s ease;
+}
+.modal-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  color: #606266; /* 預設顏色，有 Banner 時 JS 會動態改成白色 */
+  font-size: 24px;
+  line-height: 36px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.modal-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+  transform: scale(1.1);
+}
+.modal-body {
+  padding: 0; /* 先設為0，內部區塊自己控制 padding */
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* --- 2. 新增：頂部設計圖 Banner 樣式 --- */
+.detail-banner-wrapper {
+  position: relative;
+  margin-top: -68px; /* 向上移動，覆蓋原本的 Header 區域，讓 Header 浮在 Banner 上 */
+  padding-top: 0px; /* 撐開高度，避免內容被 Header 擋住 */
+}
+.detail-banner {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  padding-top: 0px; 
+}
+
+.banner-scroll {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.banner-scroll::-webkit-scrollbar {
+  display: none;
+}
+.banner-img {
+  width: 100%;
+  /* 移除之前的 padding-top 造成的多餘空間，把圖片往上移填滿 */
+  margin-top: -68px; 
+  display: block;
+  max-height: 600px;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Banner 底部漸變遮罩 */
+.banner-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 60%;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+  pointer-events: none;
+}
+
+/* --- 3. 新增：內容區域樣式 --- */
+.detail-content-inner {
+  padding: 24px;
+}
+
+/* 核心資訊卡片 */
+.core-info-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.info-card {
+  background: #f5f7fa;
+  border-radius: 12px;
+  padding: 16px 12px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+.info-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.info-label {
+  font-size: 13px;
+  color: #909399;
+  margin-bottom: 6px;
+}
+.info-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  line-height: 1.2;
+}
+
+/* 長文本模組 */
+.detail-section {
+  margin-bottom: 24px;
+}
+.section-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: #303133;
+  margin-bottom: 10px;
+  padding-left: 8px;
+  border-left: 4px solid #409eff;
+}
+.section-content {
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 16px;
+  line-height: 1.7;
+  color: #606266;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 角色圖片畫廊 */
+.detail-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.gallery-img {
+  width: 100%;
+  height: 180px;
+  border-radius: 8px;
+  object-fit: cover;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.gallery-img:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+
+/* 人物關係標籤 */
+.relation-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.relation-tag {
+  background: #ecf5ff;
+  color: #409eff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  border: 1px solid #b3d8ff;
+  transition: all 0.2s ease;
+}
+.relation-tag:hover {
+  background: #409eff;
+  color: #fff;
+}
+
+/* --- 4. 響應式適配 --- */
+@media (max-width: 768px) {
+  .modal.show { padding: 10px; }
+  .banner-img { max-height: 280px; }
+  .detail-content-inner { padding: 16px; }
+  .core-info-grid { grid-template-columns: repeat(2, 1fr); margin-bottom: 24px; }
+  .detail-gallery { grid-template-columns: repeat(2, 1fr); }
+  .info-value { font-size: 16px; }
+}
+
+/* --- 5. 動畫定義 --- */
+@keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalSlideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* 图片画廊容器 */
+.detail-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* 自适应网格 */
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/* 图片项 */
+.gallery-item {
+  width: 100%;
+  aspect-ratio: 3/4; /* 固定宽高比（可选，根据需求调整） */
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.gallery-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* 画廊图片 */
+.gallery-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 裁剪填充 */
+  display: block;
+}
+
+/* 分区标题 */
+.section-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 8px;
+  padding-left: 4px;
+  border-left: 3px solid #5273f7;
+}
+
+/* 详情页 Header 基础样式 */
+.detail-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.3s ease;
+}
+
+/* 有 Banner 时：Header 透明 */
+.detail-header.has-banner {
+  background: transparent;
+}
+
+/* 无 Banner 时：Header 白色 + 底部分割线 */
+.detail-header.no-banner {
+  background: #fff;
+  border-bottom: 1px solid #eee;
+}
+
+/* 关闭按钮默认样式（无 Banner 时） */
+#detail-close {
+  background: #f5f5f5;
+  color: #303133;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  transition: background 0.2s ease;
+}
+
+#detail-close:hover {
+  background: #eee;
 }
